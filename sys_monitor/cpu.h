@@ -53,14 +53,15 @@ private:
     double sys_rate;
     double usr_rate;
     double cpu_use_rate;
-    string model_name;
-    string processor;
-    string freq;
-    string core_num;
     unsigned long proc_num;
     unsigned long thread_num;
-
+    string model_name;
+    int processor;
+    string freq;
+    string core_num;
 public:
+
+
     cpu_time_info cpu_time;
     cpu();
     unsigned long get_total_time(){return cpu_time.sum();}
@@ -71,7 +72,7 @@ public:
     string& get_cpu_name(){ return model_name;}
     string& get_core_num(){ return core_num;}
     string& get_frequency(){ return freq;}
-    string& get_processor(){ return processor;}
+    int get_processor(){ return processor;}
     unsigned long get_proc_info(proc_cpu_info *);
     void get_proc_full(proc_cpu_info *);
     double calc_cpu_rate(const proc_cpu_info* before, const proc_cpu_info* after,const unsigned long long &cpuTime);

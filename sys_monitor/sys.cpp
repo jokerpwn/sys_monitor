@@ -34,6 +34,7 @@ double sys::get_time_info(){
     time_info.close();
 
     run_time=atof(str.c_str());
+
     time_t tt;
     //cur_time
     time(&tt);

@@ -3,6 +3,7 @@
 #include "ui_mainwindow.h"
 #include<sys/types.h>
 #include <signal.h>
+
 #define HEAD_NUM 7
 #define PID_COL 5
 #define INTERVAL 1.0
@@ -15,10 +16,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     QTimer *timer = new QTimer(this);
-    timer->start(500);
+    timer->start(1000);
     connect(timer,SIGNAL(timeout()),this,SLOT(update_time_info()));
     connect(timer,SIGNAL(timeout()),this,SLOT(loop()));
     connect(timer,SIGNAL(timeout()),this,SLOT(update_curves()));
+    connect(ui->actionshutdown,&QAction::triggered,this,&MainWindow::shutdown);
+    connect(ui->actionreboot,&QAction::triggered,this,&MainWindow::reboot);
 
     // set a function to run when a row is selected
     connect(ui->cpu_widget->selectionModel(),SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),
@@ -35,14 +38,31 @@ MainWindow::MainWindow(QWidget *parent) :
     init_sys_messages();
 
 }
-
+void MainWindow::reboot(){
+    system("reboot");
+}
+void MainWindow::shutdown(){
+    system("halt");
+}
 void MainWindow::init_sys_messages(){
     ui->host_name->setText(QString::fromStdString(sys_info.get_host()));
     ui->version->setText(QString::fromStdString(sys_info.get_version()));
+    ui->core_num->setText(QString::fromStdString(cpu_info.get_core_num()));
+    ui->processors->setText(QString::number(cpu_info.get_processor()));
+    ui->CPU_freq->setText(QString::fromStdString(cpu_info.get_frequency()));
+    ui->model_name->setText(QString::fromStdString(cpu_info.get_cpu_name()));
 }
 void MainWindow::update_time_info(){
     double acc_time=sys_info.get_time_info();
-    ui->run_time->setText(QString::number(acc_time,'f',10));
+
+    int day=int(acc_time/(3600*24));
+    int hour=int(acc_time/3600)-day*24;
+    int minutes=int(acc_time/60)-day*24*60-hour*60;
+    int seconds=int(acc_time)%60;
+
+    //QString::number(acc_time,'f',10)
+    QString time_info=QString::number(day)+"d "+QString::number(hour)+"h "+QString::number(minutes)+"m "+QString::number(seconds)+"s ";
+    ui->run_time->setText(time_info);
     ui->start_time->setText(QString::fromStdString(sys_info.get_start_time()));
     ui->cur_time->setText(QString::fromStdString(sys_info.get_cur_time()));
 }
@@ -52,9 +72,9 @@ void MainWindow::update_time_info(){
  */
 void MainWindow::filterProcesses(QString filter)
 {
+    //not sensible of the letter
     filter = filter.toLower();
-    // loop over the table and hide items which do not match the search term given
-    // only check col 0 (process name)
+
     for(int i = 0; i < ui->cpu_widget->rowCount(); i++)
     {
         // check if the row is already hidden, if so, skip it
@@ -65,8 +85,8 @@ void MainWindow::filterProcesses(QString filter)
             QTableWidgetItem* pid = ui->cpu_widget->item(i, PID_COL);
             if(name!=NULL&&pid!=NULL){
                 bool nameContains = name->text().toLower().contains(filter);
-                bool cmdLineContains = util::getProcessCmdline(pid->text().toInt()).toLower().contains(filter);
-                ui->cpu_widget->setRowHidden(i, (!nameContains && !cmdLineContains));
+                bool pidContains = pid->text().contains(filter);
+                ui->cpu_widget->setRowHidden(i, (!nameContains && !pidContains));
             }
     }
     for(int i = 0; i < ui->mem_widget->rowCount(); i++)
@@ -82,7 +102,6 @@ void MainWindow::filterProcesses(QString filter)
                 bool cmdLineContains = util::getProcessCmdline(pid->text().toInt()).toLower().contains(filter);
                 ui->mem_widget->setRowHidden(i, (!nameContains && !cmdLineContains));
             }
-
     }
 
 }
@@ -103,8 +122,8 @@ MainWindow::~MainWindow()
     delete ui;
 }
 void MainWindow::init_cpu_widget(){
-    QStringList headers = {"进程名称","%CPU","CPU时间","线程","状态","PID","用户"};
-    ui->cpu_widget->setColumnCount(7);
+    QStringList headers = {"进程名称","%CPU","CPU时间","线程","状态","PID","用户","priority"};
+    ui->cpu_widget->setColumnCount(8);
     ui->cpu_widget->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);
     ui->cpu_widget->setHorizontalHeaderLabels(headers);
     ui->cpu_widget->verticalHeader()->setVisible(false);
@@ -146,7 +165,11 @@ void MainWindow::updateTable(){
         /*--------------------sysinfo---------------*/
         cpu_time_info cur_time;
         cpu_info.get_snapshot(cur_time);
+        double cpu_rate= cpu_info.get_cpu_use(cpu_info.cpu_time,cur_time);
+        ui->cpu_rate->setText(QString::number(cpu_rate,'f',3));
+
         if (cpu_info.cpu_time.sum()!=0) {
+
             float sys_rate = cpu_info.get_sys_rate(cpu_info.cpu_time,cur_time);
             float usr_rate = cpu_info.get_usr_rate(cpu_info.cpu_time,cur_time);
             if(cpu_sys.size()==100){
@@ -159,13 +182,21 @@ void MainWindow::updateTable(){
             cpu_sys.push_back(sys_rate);
             cpu_usr.push_back(usr_rate);
         }
+
         mem_info.get_mem_info();
+        ui->mem_rate->setText(QString::number(mem_info.get_use_rate(),'f',3));
+
         float mem_rate=mem_info.get_use_rate();
+        float swap_rate=mem_info.get_swap_rate();
         if(mem_rate>0){
             if(mem_use.size()==100){
                 mem_use.pop_front();
             }
+            if(mem_swapped.size()==100){
+                mem_swapped.pop_front();
+            }
             mem_use.push_back(mem_rate);
+            mem_swapped.push_back(swap_rate);
         }
 
 
@@ -191,7 +222,9 @@ void MainWindow::updateTable(){
         cpu_info.get_snapshot(cpu_info.cpu_time);
         ui->cpu_widget->setUpdatesEnabled(false); // avoid inconsistant data
         ui->cpu_widget->setSortingEnabled(false);
-        ui->cpu_widget->setRowCount(processes.size());
+        ui->cpu_widget->setRowCount(proc_num);
+
+
        unsigned int index = 0;
        for(auto &i:processes) {
            proc_cpu_info* p = (&i.second);
@@ -220,6 +253,9 @@ void MainWindow::updateTable(){
            QString user = QString::fromStdString(p->user);
            ui->cpu_widget->setItem(index,6,new QTableWidgetItem(user));
 
+           QString priority = QString::fromStdString(p->priority);
+           ui->cpu_widget->setItem(index,7,new QTableWidgetItem(priority));
+
            ui->cpu_widget->showRow(index);
 
            // update the row selection to reflect the row that was previously selected
@@ -238,9 +274,10 @@ void MainWindow::updateTable(){
 
         ui->mem_widget->setUpdatesEnabled(false); // avoid inconsistant data
         ui->mem_widget->setSortingEnabled(false);
-        ui->mem_widget->setRowCount(processes.size());
+        ui->mem_widget->setRowCount(proc_num);
        proc_mem_info procs_mem[PROC_MAX_NUM];
        proc_num=mem_info.get_proc_info(procs_mem);
+
        index = 0;
        for(int i=0;i<proc_num;i++) {
            proc_mem_info* p = &procs_mem[i];
@@ -314,25 +351,28 @@ void MainWindow::Graph_Show(QCustomPlot *CustomPlot,int arg)
     CustomPlot->xAxis->setSubTickPen(QPen(Qt::white, 1));//副刻度
     CustomPlot->yAxis->setSubTickPen(QPen(Qt::white, 1));
 
-
     //设置属性可缩放，移动等
     CustomPlot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectAxes |
                                          QCP::iSelectLegend | QCP::iSelectPlottables);
-
 
 
     QVector<double> time(100);
     QVector<double> y_sys(100);
     QVector<double> y_usr(100);
     QVector<double> y_mem(100);
+    QVector<double> y_swap(100);
     for(int i=0;i<cpu_sys.size();i++)
     {
         time[i] = i;
         y_sys[i]=cpu_sys[i];
         y_usr[i]=cpu_usr[i];
     }
-    for(int i=0;i<mem_use.size();i++)
+    for(int i=0;i<mem_use.size();i++){
         y_mem[i]=mem_use[i];
+        y_swap[i]=mem_swapped[i];
+    }
+
+
     if(arg==1){
         CustomPlot->addGraph();//添加一条曲线
         CustomPlot->graph(0)->setPen(QPen(Qt::red)); //0是曲线序号，添加的第一条是0，设置曲线颜色
@@ -340,7 +380,7 @@ void MainWindow::Graph_Show(QCustomPlot *CustomPlot,int arg)
         CustomPlot->graph(0)->setData(time,y_sys); //输出各点的图像，x和y都是QVector类
 
         CustomPlot->xAxis->setLabel("time");//x轴的文字
-        CustomPlot->yAxis->setLabel("cpu rate");//y轴的文字
+        CustomPlot->yAxis->setLabel("rate");//y轴的文字
 
         CustomPlot->xAxis->setRange(0,100);//x轴范围
         CustomPlot->yAxis->setRange(0,100);//y轴范围
@@ -352,14 +392,21 @@ void MainWindow::Graph_Show(QCustomPlot *CustomPlot,int arg)
     }
     else{
        CustomPlot->addGraph();
+
+       CustomPlot->graph(0)->setPen(QPen(Qt::green));
+       CustomPlot->graph(0)->setData(time,y_mem);
+
        CustomPlot->xAxis->setLabel("time");//x轴的文字
-       CustomPlot->yAxis->setLabel("mem_used");//y轴的文字
+       CustomPlot->yAxis->setLabel("rate");//y轴的文字
 
        CustomPlot->xAxis->setRange(0,100);//x轴范围
        CustomPlot->yAxis->setRange(0,100);//y轴范围
-       CustomPlot->graph(0)->setPen(QPen(Qt::green));
-       CustomPlot->graph(0)->setData(time,y_mem);
+
+       CustomPlot->addGraph();//添加第二条曲线
+       CustomPlot->graph(1)->setPen(QPen(Qt::blue)); //1是曲线序号，添加的第二条是1，设置曲线颜色
+       CustomPlot->graph(1)->setData(time,y_swap);
        CustomPlot->replot();//重绘
+
     }
 }
 
@@ -383,4 +430,27 @@ void MainWindow::on_kill_button_clicked()
             }
         }
     }
+}
+
+void MainWindow::new_proc(QString newstr)
+{
+    QFileInfo file_info(newstr);
+    if(file_info.isFile())
+    {
+        QProcess *proc=new QProcess;
+        proc->start(newstr);
+    }
+    else{
+        QMessageBox::information(NULL, "Warning", "error path!Please input again", QMessageBox::Yes, QMessageBox::Yes);
+    }
+
+}
+void MainWindow::on_new_proc_clicked()
+{
+    newDialog = new Dialog();
+    newDialog->setModal(true); //模态
+    QObject::connect(newDialog,SIGNAL(sendStr(QString)),this,SLOT(new_proc(QString)));
+
+    newDialog->show();
+
 }

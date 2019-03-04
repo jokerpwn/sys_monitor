@@ -108,5 +108,6 @@ void memory::get_mem_info(){
         }
     }
     this->use_rate=((float)(mem_total-mem_free)/mem_total)*100.0;
+    this->swap_rate=((float)swapped/mem_total)*100.0;
     info_file.close();
 }

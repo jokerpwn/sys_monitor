@@ -1,4 +1,4 @@
-#include "cpu.h"
+﻿#include "cpu.h"
 #include<cmath>
 istream& operator>>(istream&in,cpu_time_info &obj){
     //http://unix.stackexchange.com/q/178045/20626
@@ -69,9 +69,10 @@ cpu::cpu():sys_rate(0),usr_rate(0),cpu_use_rate(0){
     regex proc_reg("processor\\s+:(.*)");
     smatch matchResult;
     string line;
+    this->processor=0;
     while(getline(type_file,line)){
         if(regex_match(line,matchResult,proc_reg)){
-            this->processor=matchResult[1];
+           this->processor++;
         }
         else if(regex_match(line,matchResult,freq_reg)){
             this->freq=matchResult[1];
@@ -83,6 +84,7 @@ cpu::cpu():sys_rate(0),usr_rate(0),cpu_use_rate(0){
             this->core_num=matchResult[1];
         }
     }
+
     type_file.close();
 }
 
@@ -116,7 +118,7 @@ double cpu::get_sys_rate(const cpu_time_info &s1,const cpu_time_info&s2){
  */
 unsigned long cpu::get_proc_info(proc_cpu_info *procs){
     DIR *dp;
-    char dir[10]="/proc";
+    char dir[6]="/proc";
     struct dirent *entry;
     struct stat statbuf;
 
@@ -150,6 +152,7 @@ unsigned long cpu::get_proc_info(proc_cpu_info *procs){
         closedir(dp);
         this->proc_num=count;
         this->thread_num=t_count;
+
         return count;
 }
 /*
@@ -180,8 +183,7 @@ double cpu::calc_cpu_rate(const proc_cpu_info* before, const proc_cpu_info* afte
     unsigned long long processcpuTime = ((after->utime + after->stime)
                     - (before->utime + before->stime));
 
-            /// TODO: GSM has an option to divide by # cpus
-            return (processcpuTime / cpuTimeA) * 100.0 * sysconf(_SC_NPROCESSORS_CONF);
+    return (processcpuTime / cpuTimeA) * 100.0;
 }
 
 

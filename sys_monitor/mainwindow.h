@@ -6,8 +6,10 @@
 #include <QVector>
 #include <QTime>
 #include <QTimer>
+#include<QAction>
 #include <ctime>
-
+#include <cstdlib>
+#include"dialog.h"
 #include "qcustomplot.h"
 #include"cpu.h"
 #include"memory.h"
@@ -23,6 +25,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 private:
     Ui::MainWindow *ui;
+    Dialog *newDialog;
     cpu  cpu_info;
     memory  mem_info;
     sys sys_info;
@@ -35,6 +38,10 @@ public:
     deque<double> cpu_sys;
     deque<double> cpu_usr;
     deque<double> mem_use;
+    deque<double> mem_swapped;
+    int minutes;
+    int hours;
+    int days;
 
     void init_cpu_widget();
     void init_mem_widget();
@@ -49,6 +56,8 @@ public slots:
     void filterProcesses(QString filter);
     void update_time_info();
     void update_sys_info();
+    void shutdown();
+    void reboot();
 signals:
 
     void update_sys_data();
@@ -56,6 +65,8 @@ signals:
     void signalFilterProcesses(QString filter);
 private slots:
     void on_kill_button_clicked();
+    void on_new_proc_clicked();
+    void new_proc(QString);
 };
 
 #endif // MAINWINDOW_H

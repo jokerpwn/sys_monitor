@@ -31,7 +31,8 @@ SOURCES += \
     memory.cpp \
     qcustomplot.cpp \
     sys.cpp \
-    util.cpp
+    util.cpp \
+    dialog.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -41,11 +42,12 @@ HEADERS += \
     qcustomplot.h \
     sys.h \
     tablenumberitem.h \
-    util.h
+    util.h \
+    dialog.h
 
 FORMS += \
         mainwindow.ui \
-    processpropertiesdialogue.ui
+    dialog.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

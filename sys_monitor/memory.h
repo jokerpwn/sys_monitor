@@ -23,6 +23,7 @@ private:
     unsigned long buffers;
     unsigned long swapped;
     float use_rate;
+    float swap_rate;
     unsigned long proc_num;
 public:
     memory();
@@ -31,10 +32,12 @@ public:
     //获取进程内存基本信息
     unsigned long get_proc_info(proc_mem_info *);
     float get_use_rate(){return use_rate;}
+    float get_swap_rate(){return swap_rate;}
     unsigned long get_mem_total(){return mem_total;}
     unsigned long get_mem_used(){return mem_total-mem_free;}
     unsigned long get_buffer(){return buffers;}
     unsigned long get_swapped(){return swapped;}
+
 };
 
 
